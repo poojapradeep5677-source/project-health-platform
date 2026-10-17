@@ -163,9 +163,11 @@ def execute_project_analysis(
 
         existing_runs_count = AnalysisRun.query.filter_by(project_id=project.id).count()
         next_run_num = existing_runs_count + 1
+        # Some files (interfaces, failed parses, unsupported declarations) may
+        # require rule-based fallback even when a model is installed.
         active_mode = (
             "ML_MODEL_PREDICTION"
-            if (prefer_ml and ml_service.is_available)
+            if any(r["assessment_mode"] == "ML_MODEL_PREDICTION" for r in risk_results)
             else "RULE_BASED_HEURISTIC"
         )
 

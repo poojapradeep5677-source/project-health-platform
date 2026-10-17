@@ -1,0 +1,52 @@
+{
+  "training_dataset": "ant-1.7.csv",
+  "training_features": [
+    "loc",
+    "wmc"
+  ],
+  "datasets": [
+    {
+      "dataset": "ivy-2.0.csv",
+      "classes": 352,
+      "defective_classes": 40,
+      "accuracy": 0.8097,
+      "precision": 0.3412,
+      "recall": 0.725,
+      "f1": 0.464,
+      "roc_auc": 0.8365,
+      "average_precision": 0.4594,
+      "confusion_matrix": [
+        [
+          256,
+          56
+        ],
+        [
+          11,
+          29
+        ]
+      ]
+    },
+    {
+      "dataset": "jedit-4.2.csv",
+      "classes": 367,
+      "defective_classes": 48,
+      "accuracy": 0.6403,
+      "precision": 0.2407,
+      "recall": 0.8125,
+      "f1": 0.3714,
+      "roc_auc": 0.8248,
+      "average_precision": 0.4342,
+      "confusion_matrix": [
+        [
+          196,
+          123
+        ],
+        [
+          9,
+          39
+        ]
+      ]
+    }
+  ],
+  "limitation": "External CK-feature transfer only. App's class LOC/WMC proxies may not match training tool definitions."
+}

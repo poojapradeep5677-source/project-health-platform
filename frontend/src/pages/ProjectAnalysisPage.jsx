@@ -577,6 +577,57 @@ export default function ProjectAnalysisPage() {
                   </div>
                 </div>
 
+                {/* Class-level defect predictions for the Ant 1.7 model */}
+                <div>
+                  <h4 className="text-[11px] font-semibold uppercase tracking-[0.07em] text-[#A1A1AA] mb-2.5">
+                    Java Class-Level Metrics &amp; ML Risk ({selectedFile.class_metrics?.length || 0} classes)
+                  </h4>
+                  {selectedFile.class_metrics?.length > 0 ? (
+                    <>
+                      <div className="border border-[#1F1F25] rounded-xl overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-[#0E0E11] text-[#A1A1AA] text-[10px] uppercase">
+                            <tr>
+                              <th className="px-3 py-2">Class</th>
+                              <th className="px-3 py-2 text-right">LOC</th>
+                              <th className="px-3 py-2 text-right">WMC proxy</th>
+                              <th className="px-3 py-2 text-right">ML risk score</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#1F1F25]">
+                            {selectedFile.class_metrics.map((cls, idx) => {
+                              const pred = selectedFile.class_predictions?.find(
+                                (item) => item.class_name === cls.class_name
+                              );
+                              return (
+                                <tr key={idx}>
+                                  <td className="px-3 py-2 font-medium text-[#F4F4F5]">{cls.class_name}</td>
+                                  <td className="px-3 py-2 text-right font-mono">{cls.loc}</td>
+                                  <td className="px-3 py-2 text-right font-mono">{cls.wmc}</td>
+                                  <td className="px-3 py-2 text-right font-mono">
+                                    {pred?.defect_probability != null
+                                      ? `${(pred.defect_probability * 100).toFixed(1)}%`
+                                      : 'Not available'}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      <p className="text-[10px] leading-relaxed mt-2 text-[#A1A1AA]">
+                        Class scores use Java class LOC and a WMC approximation. File risk is
+                        based on the highest class score, not a calibrated probability.
+                        Cross-project validation is still required.
+                      </p>
+                    </>
+                  ) : (
+                    <p className="text-xs text-[#6B6B76]">
+                      No named Java classes extracted. ML defect prediction may fall back to heuristic mode.
+                    </p>
+                  )}
+                </div>
+
                 {/* Unavailable Metrics (Clearly Separated) */}
                 <div>
                   <h4 className="text-[11px] font-semibold uppercase tracking-[0.07em] text-[#6B6B76] mb-2">

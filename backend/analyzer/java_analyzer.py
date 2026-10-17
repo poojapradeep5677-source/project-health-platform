@@ -713,7 +713,13 @@ def analyze_java_file(
         halstead_vol, total_cc, line_stats["loc"], line_stats["comment_ratio"]
     )
 
+    # Class-scoped observations for models trained on class-level defects.
+    # A local import avoids a circular dependency with the metric helpers.
+    from analyzer.class_metrics import extract_class_metrics
+    classes_detail = extract_class_metrics(tree, source)
+
     result = {
+        "classes_detail": classes_detail,
         "file_name": file_name,
         "file_path": rel_path,
         "package_name": package_name,

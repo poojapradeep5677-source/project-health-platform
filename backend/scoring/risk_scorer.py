@@ -89,18 +89,51 @@ def assess_file_risk(
     ml_proba = None
     ml_label = None
     final_risk_score = rule_risk_score
+    class_metrics = file_metric.get("classes_detail") or []
+    class_predictions = []
 
     if prefer_ml and ml_service is not None and ml_service.is_available:
         try:
-            ml_res = ml_service.predict_for_file(file_metric)
-            assessment_mode = "ML_MODEL_PREDICTION"
-            ml_label = ml_res["prediction_label"]
-            ml_proba = ml_res["defect_probability"]
-            if ml_proba is not None:
-                final_risk_score = round(ml_proba * 100.0, 2)
-            else:
-                final_risk_score = 80.0 if ml_label == 1 else 20.0
+            # The Ant 1.7 model was trained on CLASSES, never entire files.
+            # One file can contain multiple classes; use the maximum class risk
+            # as a transparent conservative file-level attention indicator.
+            is_ant_class_model = ml_service.model_name == "Ant17RandomForestDefectRisk"
+            if is_ant_class_model and class_metrics:
+                for cls in class_metrics:
+                    prediction = ml_service.predict_for_file(cls)
+                    class_predictions.append({
+                        "class_name": cls["class_name"],
+                        "loc": cls["loc"],
+                        "wmc": cls["wmc"],
+                        "prediction_label": prediction["prediction_label"],
+                        "defect_probability": prediction["defect_probability"],
+                    })
+                highest = max(
+                    class_predictions,
+                    key=lambda result: (
+                        result["defect_probability"]
+                        if result["defect_probability"] is not None
+                        else float(result["prediction_label"])
+                    ),
+                )
+                ml_label = highest["prediction_label"]
+                ml_proba = highest["defect_probability"]
+                assessment_mode = "ML_MODEL_PREDICTION"
+            elif not is_ant_class_model:
+                # Keep compatibility with independently trained FILE-level models.
+                ml_res = ml_service.predict_for_file(file_metric)
+                ml_label = ml_res["prediction_label"]
+                ml_proba = ml_res["defect_probability"]
+                assessment_mode = "ML_MODEL_PREDICTION"
+
+            if assessment_mode == "ML_MODEL_PREDICTION":
+                if ml_proba is not None:
+                    final_risk_score = round(ml_proba * 100.0, 2)
+                else:
+                    final_risk_score = 80.0 if ml_label == 1 else 20.0
         except MLModelIntegrationError:
+            # Never present file-level fallbacks as class-level ML predictions.
+            class_predictions = []
             assessment_mode = "RULE_BASED_HEURISTIC"
 
     if final_risk_score >= high_t:
@@ -141,6 +174,19 @@ def assess_file_risk(
         },
     ]
 
+    if class_metrics:
+        # Existing database schema stores structured per-class details within an
+        # informational factor; callers can read them via RiskAssessment.to_dict.
+        contributing_factors.append({
+            "factor": "Class-Level Java Metrics and ML Predictions",
+            "raw_value": f"{len(class_metrics)} class(es) extracted",
+            "normalized_impact": 0.0,
+            "weight": 0.0,
+            "direction": "Class LOC and WMC proxies evaluated separately; file risk is the highest class score",
+            "class_metrics": class_metrics,
+            "class_predictions": class_predictions,
+        })
+
     quality_concerns = [s["message"] for s in smells]
     if not quality_concerns:
         if final_risk_score >= med_t:
@@ -154,9 +200,14 @@ def assess_file_risk(
 
     if assessment_mode == "ML_MODEL_PREDICTION":
         prob_text = f"{ml_proba * 100:.1f}%" if ml_proba is not None else f"Class {ml_label}"
+        class_context = (
+            f" Predictions were computed for {len(class_predictions)} individual Java class(es); "
+            "the file is assigned the highest class score (not a calibrated file probability)."
+            if class_predictions else ""
+        )
         explanation = (
             f"Evaluated via connected scikit-learn model ({ml_service.model_name}) with predicted defect risk {prob_text} "
-            f"(Risk Category: {risk_category}). Static indicators show CC={cc}, MI={mi_val:.1f}, and {len(smells)} code smell(s). "
+            f"(Risk Category: {risk_category}).{class_context} Static indicators show CC={cc}, MI={mi_val:.1f}, and {len(smells)} code smell(s). "
             "Note: Predictions estimate relative defect proneness based on structural metrics and do not guarantee bug presence."
         )
     else:

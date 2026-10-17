@@ -1,0 +1,89 @@
+name: End-to-end application on version-007
+
+on:
+  push:
+    branches: [version-007]
+    paths:
+      - "backend/**"
+      - "frontend/**"
+      - ".github/workflows/e2e-platform.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-backend-and-browser:
+    if: github.ref == 'refs/heads/version-007'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout version-007 only
+        uses: actions/checkout@v4
+        with:
+          ref: version-007
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install backend dependencies
+        run: python -m pip install -r backend/requirements.txt
+
+      - name: Test entire Flask analysis pipeline with real model
+        working-directory: backend
+        run: python -m pytest tests/test_full_application_e2e.py tests/test_class_metrics.py -q
+
+      - name: Install frontend and ephemeral Playwright test dependency
+        working-directory: frontend
+        run: |
+          npm ci
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Launch Flask backend and Vite frontend
+        run: |
+          (
+            cd backend
+            python app.py > /tmp/version007-flask.log 2>&1 &
+          )
+          (
+            cd frontend
+            npm run dev -- --host 127.0.0.1 > /tmp/version007-vite.log 2>&1 &
+          )
+          for i in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:5000/api/health >/dev/null && curl --fail --silent http://127.0.0.1:5173/upload >/dev/null; then
+              echo 'Backend and Vite started'
+              break
+            fi
+            if [ "$i" -eq 90 ]; then
+              cat /tmp/version007-flask.log
+              cat /tmp/version007-vite.log
+              exit 1
+            fi
+            sleep 1
+          done
+
+      - name: Run real Chromium browser tests
+        working-directory: frontend
+        run: node scripts/e2e-smoke.mjs
+
+      - name: Publish screenshots and server logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: version007-browser-e2e
+          path: |
+            frontend/e2e-artifacts/*.png
+            /tmp/version007-flask.log
+            /tmp/version007-vite.log
+          if-no-files-found: ignore
+          retention-days: 14

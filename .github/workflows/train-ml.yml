@@ -1,0 +1,79 @@
+name: Train and publish Ant 1.7 ML model
+on:
+  push:
+    branches:
+      - version-007
+    paths:
+      - "backend/ml/**"
+      - "backend/requirements.txt"
+      - ".github/workflows/train-ml.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: train-ant17-version-007
+  cancel-in-progress: false
+
+jobs:
+  train:
+    if: github.ref == 'refs/heads/version-007'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the isolated work branch
+        uses: actions/checkout@v4
+        with:
+          ref: version-007
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install training and application dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt matplotlib
+
+      - name: Train and export model
+        working-directory: backend
+        run: python ml/train_model.py
+
+      - name: Test inference and rule-based fallback
+        working-directory: backend
+        run: python -m pytest ml/test_trained_model.py -q
+
+      - name: Test class-level extraction, aggregation, and API persistence
+        working-directory: backend
+        run: python -m pytest tests/test_class_metrics.py -q
+
+      - name: Validate frozen model on unrelated Java datasets
+        working-directory: backend
+        run: python ml/validate_cross_project.py
+
+      - name: Commit generated artifacts to version-007 only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/ml/models/model_metadata.json backend/ml/models/evaluation_results.json backend/ml/models/evaluation_results.csv backend/ml/models/confusion_matrix.png backend/ml/models/cross_project_validation.json backend/ml/models/cross_project_validation.csv
+          git add -f backend/ml/models/defect_predictor.joblib
+          if ! git diff --cached --quiet; then
+            git commit -m "Train and publish Ant 1.7 ML model (version-007)"
+            # Other collaborators and workflows can move version-007 during
+            # training. Rebase generated artifacts instead of force-pushing.
+            for attempt in 1 2 3; do
+              git fetch origin version-007
+              git rebase origin/version-007
+              if git push origin HEAD:refs/heads/version-007; then
+                exit 0
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                echo "Unable to publish generated results after three attempts" >&2
+                exit 1
+              fi
+            done
+          fi

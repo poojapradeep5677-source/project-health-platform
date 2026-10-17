@@ -1,0 +1,56 @@
+name: Verify platform and frontend on version-007
+
+on:
+  push:
+    branches: [version-007]
+    paths:
+      - 'backend/analyzer/**'
+      - 'backend/database/**'
+      - 'backend/services/**'
+      - 'backend/scoring/**'
+      - 'backend/tests/**'
+      - 'frontend/**'
+      - '.github/workflows/verify-platform.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backend-regression:
+    if: github.ref == 'refs/heads/version-007'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: python -m pip install -r backend/requirements.txt
+      - name: Run existing platform regression tests (rule-based baseline)
+        working-directory: backend
+        run: |
+          # The original suite assumes no installed model. Hide it only in
+          # this temporary CI checkout; the actual Git branch is unchanged.
+          mv ml/models/defect_predictor.joblib ml/models/defect_predictor.joblib.disabled
+          python -m pytest tests/test_platform.py -q
+
+  frontend-build:
+    if: github.ref == 'refs/heads/version-007'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Run frontend structural tests
+        working-directory: frontend
+        run: npm test
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build

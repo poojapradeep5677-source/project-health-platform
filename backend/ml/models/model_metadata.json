@@ -1,0 +1,92 @@
+{
+  "model_name": "Ant17RandomForestDefectRisk",
+  "version": "0.7.0",
+  "feature_names": [
+    "loc",
+    "cyclomatic_complexity"
+  ],
+  "training_columns_mapped_to_analyzer": {
+    "loc": "loc",
+    "wmc": "cyclomatic_complexity"
+  },
+  "dataset_name": "PROMISE/Jureczko Apache Ant 1.7",
+  "source_url": "https://zenodo.org/records/268440",
+  "training_data_mirror": "https://github.com/pravaliManchala/SDP/blob/main/ant-1.7.csv",
+  "training_csv_sha256": "00f6ac4496022fcbd5e5cd0edd7ba605a2f4ba1c851181ab7766d61ce2cbd346",
+  "total_rows": 745,
+  "defective_rows": 166,
+  "training_rows": 596,
+  "test_rows": 149,
+  "split": "80/20 stratified, random_state=42",
+  "selection": "Random Forest 5-fold cross-validated average precision on train split",
+  "best_params": {
+    "max_depth": null,
+    "min_samples_leaf": 10,
+    "n_estimators": 200
+  },
+  "cv_average_precision": 0.6484,
+  "sklearn_version": "1.8.0",
+  "evaluation": {
+    "majority_class_baseline": {
+      "accuracy": 0.7785,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "roc_auc": 0.5,
+      "confusion_matrix": [
+        [
+          116,
+          0
+        ],
+        [
+          33,
+          0
+        ]
+      ]
+    },
+    "random_forest": {
+      "accuracy": 0.7517,
+      "balanced_accuracy": 0.7213,
+      "precision": 0.4583,
+      "recall": 0.6667,
+      "f1": 0.5432,
+      "roc_auc": 0.7642,
+      "average_precision": 0.5195,
+      "confusion_matrix": [
+        [
+          90,
+          26
+        ],
+        [
+          11,
+          22
+        ]
+      ]
+    },
+    "logistic_regression": {
+      "accuracy": 0.7852,
+      "balanced_accuracy": 0.732,
+      "precision": 0.5122,
+      "recall": 0.6364,
+      "f1": 0.5676,
+      "roc_auc": 0.8177,
+      "average_precision": 0.5746,
+      "confusion_matrix": [
+        [
+          96,
+          20
+        ],
+        [
+          12,
+          21
+        ]
+      ]
+    }
+  },
+  "limitations": [
+    "Dataset samples are Java classes, app predictions are Java files.",
+    "WMC is not identical to file-level aggregate cyclomatic complexity.",
+    "LOC counting conventions may differ.",
+    "Not evaluated on independent projects; model scores are not calibrated."
+  ]
+}

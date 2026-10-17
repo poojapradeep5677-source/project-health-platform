@@ -3,6 +3,15 @@ from datetime import datetime, timezone
 from database import db
 
 
+def _class_observations(risk):
+    """Read class records from persisted informational factors (no schema migration)."""
+    factors = json.loads(risk.contributing_factors_json or "[]") if risk else []
+    for factor in factors:
+        if factor.get("factor") == "Class-Level Java Metrics and ML Predictions":
+            return (factor.get("class_metrics", []), factor.get("class_predictions", []))
+    return ([], [])
+
+
 def utcnow():
     return datetime.now(timezone.utc)
 
@@ -252,6 +261,7 @@ class FileMetric(db.Model):
     def to_dict(self, include_details=True):
         risk = self.risk_assessment
         rec = self.recommendation
+        class_metrics, class_predictions = _class_observations(risk)
         data = {
             "id": self.id,
             "analysis_run_id": self.analysis_run_id,
@@ -289,6 +299,8 @@ class FileMetric(db.Model):
             ),
             "code_smell_count": self.code_smell_count,
             "code_smells": json.loads(self.code_smells_json or "[]"),
+            "class_metrics": class_metrics if include_details else [],
+            "class_predictions": class_predictions,
             "risk_category": risk.risk_category if risk else "UNKNOWN",
             "risk_score": round(risk.risk_score, 2) if risk else 0.0,
             "assessment_mode": risk.assessment_mode if risk else "RULE_BASED_HEURISTIC",
@@ -348,7 +360,10 @@ class RiskAssessment(db.Model):
     def to_dict(self):
         fm = self.file_metric
         rec = fm.recommendation if fm else None
+        class_metrics, class_predictions = _class_observations(self)
         return {
+            "class_metrics": class_metrics,
+            "class_predictions": class_predictions,
             "id": self.id,
             "analysis_run_id": self.analysis_run_id,
             "file_metric_id": self.file_metric_id,

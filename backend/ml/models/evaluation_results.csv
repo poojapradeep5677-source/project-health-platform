@@ -1,0 +1,4 @@
+model,accuracy,precision,recall,f1,roc_auc,balanced_accuracy,average_precision
+majority_class_baseline,0.7785,0.0,0.0,0.0,0.5,,
+random_forest,0.7517,0.4583,0.6667,0.5432,0.7642,0.7213,0.5195
+logistic_regression,0.7852,0.5122,0.6364,0.5676,0.8177,0.732,0.5746

@@ -45,3 +45,6 @@ yarn-error.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Track only the reproducible deployed defect classifier, not arbitrary model dumps
+!backend/ml/models/defect_predictor.joblib
